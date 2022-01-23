@@ -1,3 +1,5 @@
+//! https://www.baeldung.com/java-monte-carlo-tree-search
+
 #![allow(dead_code)]
 
 use bumpalo::collections::Vec;
@@ -85,7 +87,7 @@ mod mcts {
     }
 
     fn expand_node<S>(node: &Node<S>) {
-        todo!()
+        todo!("next")
     }
 
     fn simulate_random_playout<S>(node: &Node<'_, S>) -> u64 {
@@ -94,6 +96,30 @@ mod mcts {
 
     fn back_propagation<S>(node: &Node<'_, S>, playout_result: u64) {
         todo!()
+    }
+
+    mod uct {
+        use crate::Node;
+
+        pub fn uct(total_visit: u64, win_score: u64, node_visit: u64) -> u64 {
+            if node_visit == 0 {
+                return u64::MAX;
+            }
+
+            let num = (win_score / node_visit) as f64
+                + std::f64::consts::SQRT_2
+                    * f64::sqrt((total_visit as f64).ln() / node_visit as f64);
+
+            num as u64
+        }
+
+        pub fn find_best_node_with_uct<S>(node: &Node<S>) -> Option<&Node<S>> {
+            let parent_visit_count = node.visited;
+
+            node.children
+                .iter()
+                .max_by_key(|n| uct(parent_visit_count, n.won, n.visited))
+        }
     }
 }
 
