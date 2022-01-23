@@ -1,4 +1,3 @@
-use crate::Node;
 use std::collections::VecDeque;
 
 struct Node<T> {
@@ -6,32 +5,38 @@ struct Node<T> {
     children: Vec<Node<T>>,
 }
 
-pub fn breadth_first_search<T: Eq>(tree: &Node<T>, searched: &T) -> bool {
+#[macro_export]
+macro_rules! tree {
+    ($first:expr $(, $($rest:expr),*)?) => {
+        $crate::basic_search::Node {
+            value: $first,
+            children: vec![$($($rest),*)?],
+        }
+    };
+}
+
+fn breadth_first_search<T: Eq>(tree: &Node<T>, searched: &T) -> bool {
     let mut candidates = VecDeque::new();
     candidates.push_back(tree);
 
-    loop {
-        if let Some(candidate) = candidates.pop_front() {
-            if candidate.value == *searched {
-                return true;
-            }
-
-            candidates.extend(candidate.children.iter());
-        } else {
-            break;
+    while let Some(candidate) = candidates.pop_front() {
+        if candidate.value == *searched {
+            return true;
         }
+
+        candidates.extend(candidate.children.iter());
     }
 
     false
 }
 
-pub fn depth_first_search<T: Eq>(tree: &Node<T>, searched: &T) -> bool {
+fn depth_first_search<T: Eq>(tree: &Node<T>, searched: &T) -> bool {
     if tree.value == *searched {
         return true;
     }
 
     for child in &tree.children {
-        if depth_first_search(&child, searched) {
+        if depth_first_search(child, searched) {
             return true;
         }
     }
@@ -41,7 +46,7 @@ pub fn depth_first_search<T: Eq>(tree: &Node<T>, searched: &T) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::basic_search::{self, Node};
+    use crate::basic_search;
     use crate::tree;
 
     #[test]
