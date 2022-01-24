@@ -22,6 +22,7 @@ pub trait GameState {
 
 type Tree<'tree, S> = RefCell<Node<'tree, S>>;
 
+#[derive(Clone)]
 struct Node<'tree, S> {
     state: S,
     visited: u64,
@@ -59,10 +60,10 @@ mod mcts {
 
     const MAX_TRIES: u64 = 10000;
 
-    pub fn find_next_move<S: GameState>(current_state: S) -> S {
+    pub fn find_next_move<S: GameState + Clone>(current_state: S) -> S {
         let alloc = Bump::new();
 
-        let root_node = RefCell::new(Node::new(current_state, &alloc));
+        let root_node = alloc.alloc(RefCell::new(Node::new(current_state, &alloc)));
 
         for _ in 0..MAX_TRIES {
             let promising_node_cell = select_promising_node(&root_node);
@@ -72,17 +73,17 @@ mod mcts {
                 expand_node(&promising_node);
             }
 
-            let node_to_explore = if !promising_node.children.is_empty() {
-                promising_node.random_child()
+            if !promising_node.children.is_empty() {
+                let child = promising_node.random_child().borrow();
+                let playout_result = simulate_random_playout(&child);
+                back_propagation(&child, playout_result);
             } else {
-                promising_node_cell
+                let playout_result = simulate_random_playout(&promising_node);
+                back_propagation(&promising_node, playout_result);
             };
-
-            let playout_result = simulate_random_playout(&node_to_explore.borrow());
-            back_propagation(&node_to_explore.borrow(), playout_result);
         }
 
-        let winner_node = root_node.into_inner().into_child_with_max_score();
+        let winner_node = root_node.clone().into_inner().into_child_with_max_score();
 
         let state = winner_node.unwrap().into_inner().state;
         state
@@ -101,15 +102,15 @@ mod mcts {
         node
     }
 
-    fn expand_node<S>(node: &Node<S>) {
+    fn expand_node<S>(_node: &Node<S>) {
         todo!("next")
     }
 
-    fn simulate_random_playout<S>(node: &Node<'_, S>) -> u64 {
+    fn simulate_random_playout<S>(_node: &Node<'_, S>) -> u64 {
         todo!()
     }
 
-    fn back_propagation<S>(node: &Node<'_, S>, playout_result: u64) {
+    fn back_propagation<S>(_node: &Node<'_, S>, _playout_result: u64) {
         todo!()
     }
 
@@ -129,7 +130,7 @@ mod mcts {
             num as u64
         }
 
-        pub fn find_best_node_with_uct<'tree, S>(
+        pub fn find_best_node_with_uct<'cell, 'tree, S>(
             node: &'tree Node<'tree, S>,
         ) -> Option<&'tree RefCell<Node<'tree, S>>> {
             let parent_visit_count = node.visited;
