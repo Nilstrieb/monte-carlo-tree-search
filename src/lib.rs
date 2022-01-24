@@ -27,11 +27,13 @@ struct Node<'tree, S> {
     state: S,
     visited: u64,
     score: u64,
-    parent: Option<&'tree RefCell<Node<'tree, S>>>,
-    children: Vec<'tree, RefCell<Node<'tree, S>>>,
+    parent: Option<&'tree RefNode<'tree, S>>,
+    children: Vec<'tree, RefNode<'tree, S>>,
 }
 
-impl<'tree, S: GameState> Node<'tree, S> {
+type RefNode<'tree, S> = RefCell<Node<'tree, S>>;
+
+impl<'tree, S> Node<'tree, S> {
     fn new(state: S, alloc: &'tree Bump) -> Node<S> {
         Node {
             state,
@@ -54,7 +56,7 @@ impl<'tree, S: GameState> Node<'tree, S> {
 }
 
 mod mcts {
-    use crate::{GameState, Node};
+    use crate::{GameState, Node, RefNode};
     use bumpalo::Bump;
     use std::cell::RefCell;
 
@@ -90,8 +92,8 @@ mod mcts {
     }
 
     fn select_promising_node<'tree, S>(
-        root_node: &'tree RefCell<Node<'tree, S>>,
-    ) -> &'tree RefCell<Node<'tree, S>> {
+        root_node: &'tree RefNode<'tree, S>,
+    ) -> &'tree RefNode<'tree, S> {
         let mut node = root_node;
 
         let borrowed_node = node.borrow();
@@ -102,21 +104,21 @@ mod mcts {
         node
     }
 
-    fn expand_node<S>(_node: &Node<S>) {
+    fn expand_node<S>(_node: &RefNode<S>) {
         todo!("next")
     }
 
-    fn simulate_random_playout<S>(_node: &Node<'_, S>) -> u64 {
+    fn simulate_random_playout<S>(_node: &RefNode<'_, S>) -> u64 {
         todo!()
     }
 
-    fn back_propagation<S>(_node: &Node<'_, S>, _playout_result: u64) {
+    fn back_propagation<S>(_node: &RefNode<'_, S>, _playout_result: u64) {
         todo!()
     }
 
     mod uct {
+        use crate::mcts::RefNode;
         use crate::Node;
-        use std::cell::RefCell;
 
         pub fn uct(total_visit: u64, win_score: u64, node_visit: u64) -> u64 {
             if node_visit == 0 {
@@ -131,8 +133,8 @@ mod mcts {
         }
 
         pub fn find_best_node_with_uct<'cell, 'tree, S>(
-            node: &'tree Node<'tree, S>,
-        ) -> Option<&'tree RefCell<Node<'tree, S>>> {
+            node: &'tree RefNode<'tree, S>,
+        ) -> Option<&'tree RefNode<'tree, S>> {
             let parent_visit_count = node.visited;
 
             node.children.iter().max_by_key(|n| {
