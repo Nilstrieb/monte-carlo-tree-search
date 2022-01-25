@@ -109,11 +109,32 @@ mod mcts {
         node.children.set(children);
     }
 
-    fn simulate_random_playout<S>(_node: &Node<'_, S>) -> u64 {
-        todo!()
+    fn back_propagation<S>(node: &Node<'_, S>, _playout_result: u64) {
+        let mut temp_node = Some(node);
+
+        while let Some(node) = temp_node {
+            // todo increment visit
+            // todo increment win count if we won
+            temp_node = node.parent;
+        }
     }
 
-    fn back_propagation<S>(_node: &Node<'_, S>, _playout_result: u64) {
+    fn simulate_random_playout<S>(_node: &Node<'_, S>) -> u64 {
+        /*
+        Node tempNode = new Node(node);
+        State tempState = tempNode.getState();
+        int boardStatus = tempState.getBoard().checkStatus();
+        if (boardStatus == opponent) {
+            tempNode.getParent().getState().setWinScore(Integer.MIN_VALUE);
+            return boardStatus;
+        }
+        while (boardStatus == Board.IN_PROGRESS) {
+            tempState.togglePlayer();
+            tempState.randomPlay();
+            boardStatus = tempState.getBoard().checkStatus();
+        }
+        return boardStatus;
+             */
         todo!()
     }
 
