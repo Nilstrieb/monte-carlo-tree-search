@@ -4,8 +4,8 @@ mod basic_search;
 
 pub use mcts::find_next_move;
 
-pub trait GameState: Clone {
-    type Player: Eq + Copy;
+pub trait GameState: Clone + std::fmt::Debug {
+    type Player: Eq + Copy + std::fmt::Debug;
 
     fn next_states(&self) -> Box<dyn ExactSizeIterator<Item = Self>>;
 
@@ -20,7 +20,7 @@ mod mcts {
     use rand::Rng;
     use std::cell::Cell;
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct Node<'tree, S> {
         state: S,
         visited: Cell<u32>,
@@ -62,7 +62,9 @@ mod mcts {
 
         let root_node = alloc.alloc(Node::new(current_state, &alloc));
 
-        for _ in 0..MAX_TRIES {
+        for i in 0..MAX_TRIES {
+            dbg!(i);
+
             let promising_node = select_promising_node(root_node);
 
             if promising_node.state.player_won() == None {
@@ -89,7 +91,7 @@ mod mcts {
         let mut node = root_node;
 
         while !node.children.get().is_empty() {
-            node = uct::find_best_node_with_uct(root_node).unwrap()
+            node = uct::find_best_node_with_uct(node).unwrap()
         }
 
         node
@@ -125,10 +127,7 @@ mod mcts {
         }
     }
 
-    fn simulate_random_playout<'p, S: GameState>(
-        node: &Node<'_, S>,
-        opponent: S::Player,
-    ) -> S::Player {
+    fn simulate_random_playout<S: GameState>(node: &Node<'_, S>, opponent: S::Player) -> S::Player {
         let mut state = node.state.clone();
 
         let mut board_status = state.player_won();
@@ -145,6 +144,11 @@ mod mcts {
                 None => {
                     state.next_random_play();
                     board_status = state.player_won();
+                    dbg!(&board_status);
+
+                    if let None = board_status {
+                        println!("none");
+                    }
                 }
                 Some(player) => return player,
             }
@@ -184,7 +188,7 @@ pub mod tic_tac_toe {
     use rand::Rng;
     use std::fmt::{Display, Formatter, Write};
 
-    #[derive(Copy, Clone, Eq, PartialEq)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Player {
         O,
         X,
@@ -201,7 +205,7 @@ pub mod tic_tac_toe {
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone)]
     enum State {
         Empty,
         X,
@@ -227,7 +231,7 @@ pub mod tic_tac_toe {
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Board {
         active_player: Player,
         board: [State; 9],
