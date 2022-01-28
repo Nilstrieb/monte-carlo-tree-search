@@ -62,16 +62,14 @@ mod mcts {
         }
     }
 
-    const MAX_TRIES: u64 = 5;
+    const MAX_TRIES: u64 = 10_000;
 
     pub fn find_next_move<S: GameState>(current_state: S, opponent: S::Player) -> S {
         let alloc = Bump::new();
 
         let root_node = alloc.alloc(Node::new(current_state, &alloc));
 
-        for i in 0..MAX_TRIES {
-            dbg!(i);
-
+        for _ in 0..MAX_TRIES {
             let promising_node = select_promising_node(root_node);
 
             if promising_node.state.status() == Status::InProgress {

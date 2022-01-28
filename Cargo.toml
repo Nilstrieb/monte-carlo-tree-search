@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bumpalo = { version = "3.9.1", features = ["collections"] }
+bumpalo = { version = "3.9.1", features = [] }
 rand = "0.8.4"
