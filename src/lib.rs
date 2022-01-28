@@ -55,7 +55,7 @@ mod mcts {
         }
     }
 
-    const MAX_TRIES: u64 = 10000;
+    const MAX_TRIES: u64 = 5;
 
     pub fn find_next_move<S: GameState>(current_state: S, opponent: S::Player) -> S {
         let alloc = Bump::new();
@@ -125,7 +125,10 @@ mod mcts {
         }
     }
 
-    fn simulate_random_playout<S: GameState>(node: &Node<'_, S>, opponent: S::Player) -> S::Player {
+    fn simulate_random_playout<'p, S: GameState>(
+        node: &Node<'_, S>,
+        opponent: S::Player,
+    ) -> S::Player {
         let mut state = node.state.clone();
 
         let mut board_status = state.player_won();
@@ -176,13 +179,26 @@ mod mcts {
     }
 }
 
-mod tic_tac_toe {
+pub mod tic_tac_toe {
     use crate::GameState;
+    use rand::Rng;
+    use std::fmt::{Display, Formatter, Write};
 
     #[derive(Copy, Clone, Eq, PartialEq)]
-    enum Player {
+    pub enum Player {
         O,
         X,
+    }
+
+    impl std::ops::Not for Player {
+        type Output = Self;
+
+        fn not(self) -> Self::Output {
+            match self {
+                Self::O => Self::X,
+                Self::X => Self::O,
+            }
+        }
     }
 
     #[derive(Copy, Clone)]
@@ -192,8 +208,27 @@ mod tic_tac_toe {
         O,
     }
 
+    impl Display for State {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            match self {
+                State::Empty => f.write_char(' '),
+                State::X => f.write_char('X'),
+                State::O => f.write_char('O'),
+            }
+        }
+    }
+
+    impl From<Player> for State {
+        fn from(player: Player) -> State {
+            match player {
+                Player::O => State::O,
+                Player::X => State::X,
+            }
+        }
+    }
+
     #[derive(Copy, Clone)]
-    struct Board {
+    pub struct Board {
         active_player: Player,
         board: [State; 9],
     }
@@ -205,21 +240,186 @@ mod tic_tac_toe {
                 board: [State::Empty; 9],
             }
         }
+
+        fn free_fields(&self) -> usize {
+            self.board
+                .iter()
+                .filter(|field| matches!(field, State::Empty))
+                .count()
+        }
     }
 
     impl GameState for Board {
         type Player = Player;
 
         fn next_states(&self) -> Box<dyn ExactSizeIterator<Item = Self>> {
-            todo!()
+            let state_iter = self
+                .board
+                .iter()
+                .enumerate()
+                .filter(|(_, field)| matches!(field, State::Empty))
+                .map(|(i, _)| {
+                    let mut new_state = *self;
+
+                    new_state.active_player = !self.active_player;
+                    new_state.board[i] = new_state.active_player.into();
+
+                    new_state
+                })
+                .collect::<Vec<_>>()
+                .into_iter();
+
+            Box::new(state_iter)
         }
 
         fn player_won(&self) -> Option<Player> {
-            todo!()
+            let all_checks = [
+                // rows
+                [0, 1, 2],
+                [3, 4, 5],
+                [6, 7, 8],
+                // columns
+                [0, 3, 6],
+                [1, 4, 7],
+                [2, 5, 8],
+                // diagonals
+                [0, 4, 8],
+                [2, 4, 6],
+            ];
+
+            for check in all_checks {
+                match check.map(|i| &self.board[i]) {
+                    [State::X, State::X, State::X] => return Some(Player::X),
+                    [State::O, State::O, State::O] => return Some(Player::O),
+                    _ => {}
+                }
+            }
+
+            None
         }
 
         fn next_random_play(&mut self) {
-            todo!()
+            self.active_player = !self.active_player;
+
+            let free_fields = self.free_fields();
+            let random_field = rand::thread_rng().gen_range(0..free_fields);
+
+            let (field_idx, _) = self
+                .board
+                .iter()
+                .enumerate()
+                .filter(|(_, field)| matches!(field, State::Empty))
+                .nth(random_field)
+                .unwrap();
+
+            self.board[field_idx] = self.active_player.into();
+        }
+    }
+
+    impl Display for Board {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            let b = &self.board;
+
+            write!(
+                f,
+                "    a   b   c
+  ╭───┬───┬───╮
+1 │ {} │ {} │ {} │
+  ├───┼───┼───┤
+2 │ {} │ {} │ {} │
+  ├───┼───┼───┤
+3 │ {} │ {} │ {} │
+  ╰───┴───┴───╯",
+                b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8]
+            )
+        }
+    }
+
+    pub use run::main;
+
+    mod run {
+        use super::{Board, Player};
+        use crate::tic_tac_toe::State;
+        use crate::{mcts, GameState};
+        use std::io::Write;
+
+        const PLAYING_PLAYER: Player = Player::O;
+
+        pub fn main() {
+            let mut board = Board::new(PLAYING_PLAYER);
+
+            let winner = loop {
+                println!("{}", board);
+                process_player_input(&mut board);
+
+                if let Some(result) = is_finished(&board) {
+                    break result;
+                }
+
+                let ai_play = mcts::find_next_move(board, PLAYING_PLAYER);
+                board = ai_play;
+
+                if let Some(result) = is_finished(&board) {
+                    break result;
+                }
+            };
+
+            println!("{}", board);
+            match winner {
+                Some(player) => println!("player {} won!", State::from(player)),
+                None => println!("draw!"),
+            }
+        }
+
+        fn is_finished(board: &Board) -> Option<Option<Player>> {
+            if let Some(winner) = board.player_won() {
+                return Some(Some(winner));
+            }
+
+            if board.free_fields() == 0 {
+                return Some(None);
+            }
+
+            None
+        }
+
+        fn process_player_input(board: &mut Board) {
+            loop {
+                let player_input = get_player_pos();
+
+                match board.board[player_input] {
+                    State::Empty => {
+                        board.board[player_input] = PLAYING_PLAYER.into();
+                        return;
+                    }
+                    _ => {
+                        println!("Field is already taken.")
+                    }
+                }
+            }
+        }
+
+        fn get_player_pos() -> usize {
+            loop {
+                print!("your move (xy): ");
+                std::io::stdout().flush().unwrap();
+
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input).unwrap();
+                let input = input.trim();
+
+                let mut chars = input.chars();
+
+                match [chars.next(), chars.next()] {
+                    [Some(x_char @ ('a' | 'b' | 'c')), Some(y_char @ ('1' | '2' | '3'))] => {
+                        let x = (x_char as u8) - b'a';
+                        let y = (y_char as u8) - b'1';
+
+                        return (x + (3 * y)) as usize;
+                    }
+                    _ => eprintln!("Invalid input: {}", input),
+                }
+            }
         }
     }
 }
