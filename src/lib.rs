@@ -17,8 +17,9 @@ pub trait PlayerState: Eq + Copy {
 
 pub trait GameState: Clone + std::fmt::Debug {
     type Player: PlayerState + std::fmt::Debug;
+    type NextStates: ExactSizeIterator<Item = Self>;
 
-    fn next_states(&self) -> Box<dyn ExactSizeIterator<Item = Self>>;
+    fn next_states(&self) -> Self::NextStates;
 
     fn status(&self) -> Status<Self::Player>;
 
@@ -46,7 +47,7 @@ mod mcts {
 
     impl<'tree, S: GameState> Node<'tree, S> {
         fn new(state: S, player: S::Player, alloc: &'tree Bump) -> Node<'tree, S> {
-            Node {
+            Self {
                 state,
                 player,
                 visited: Cell::new(0),
@@ -273,7 +274,9 @@ pub mod tic_tac_toe {
     impl GameState for Board {
         type Player = Player;
 
-        fn next_states(&self) -> Box<dyn ExactSizeIterator<Item = Self>> {
+        type NextStates = std::vec::IntoIter<Self>;
+
+        fn next_states(&self) -> Self::NextStates {
             let state_iter = self
                 .board
                 .iter()
@@ -290,7 +293,7 @@ pub mod tic_tac_toe {
                 .collect::<Vec<_>>()
                 .into_iter();
 
-            Box::new(state_iter)
+            state_iter
         }
 
         fn status(&self) -> Status<Player> {
